@@ -9,7 +9,7 @@ from langchain_core.embeddings import Embeddings
 # =========================
 # 🔑 CREATE GEMINI CLIENT
 # =========================
-client = genai.Client(api_key="AIzaSyA-KOVK79fgmtSDjV3DIc1CfIyLQjf1CoQ")
+client = genai.Client(api_key="AIzaSyBK5ewoJpswzX9YEbJrVfmN1FJ_wz1pOMs")
 
 
 # =========================
