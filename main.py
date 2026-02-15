@@ -109,6 +109,39 @@ def search_person(name, chunks):
             results.append(c)
     return results
 
+# =========================
+# 🔹 SEARCH PERSON FUNCTION
+# =========================
+def search_person(name, chunks):
+    results = []
+    for c in chunks:
+        if name.lower() in c.page_content.lower():
+            results.append(c)
+    return results
+
+
+# =========================
+# 🔹 CONNECTION FINDER
+# =========================
+import re
+from collections import Counter
+
+def find_connections(name, chunks):
+    co_occurrence = []
+
+    for c in chunks:
+        text = c.page_content
+
+        if name.lower() in text.lower():
+            words = re.findall(r'\b[A-Z][a-z]+\b', text)
+
+            for w in words:
+                if w.lower() != name.lower():
+                    co_occurrence.append(w)
+
+    counts = Counter(co_occurrence)
+
+    return counts.most_common(20)
 
 # =========================
 # 🔹 GENERATE ANSWER (WITH RETRY)
@@ -138,7 +171,7 @@ DB_PATH = "faiss_index"
 embeddings = GeminiEmbeddings()
 
 # Ask Mode first to determine if we need to load DB or Raw Text
-mode = input("\nType 'ask' or 'person': ").strip().lower()
+mode = input("\nType 'ask', 'person' or 'connections': ").strip().lower()
 
 if mode == "person":
     chunks = load_and_process_pdfs()
@@ -154,6 +187,21 @@ if mode == "person":
         print(f"{i+1}. File: {r.metadata.get('source')} (Page: {r.metadata.get('page')})")
         print(r.page_content[:300].replace('\n', ' '))
         print("-----\n")
+
+elif mode == "connections":
+    chunks = load_and_process_pdfs()
+    if not chunks:
+        print("No data found.")
+        exit()
+
+    name = input("Enter name: ")
+
+    connections = find_connections(name, chunks)
+
+    print(f"\nTop connections for '{name}':\n")
+
+    for person, count in connections:
+        print(f"{person} → mentioned {count} times")
 
 elif mode == "ask":
     # Check for existing DB
