@@ -22,6 +22,15 @@ def get_embedding(text):
     )
     return response.embeddings[0].values
 
+#search person function
+def search_person(name, chunks):
+    results = []
+
+    for c in chunks:
+        if name.lower() in c.page_content.lower():
+            results.append(c)
+
+    return results
 
 # =========================
 # 🔹 CUSTOM EMBEDDING CLASS
@@ -62,7 +71,28 @@ db = FAISS.from_documents(chunks, embeddings)
 # =========================
 # 🔹 USER QUERY
 # =========================
-query = input("\nAsk a question: ")
+mode = input("\nType 'ask' or 'person': ").strip().lower()
+
+#search person mode
+if mode == "person":
+    name = input("Enter name: ")
+
+    results = search_person(name, chunks)
+
+    print(f"\nFound {len(results)} mentions for '{name}':\n")
+
+    if len(results) == 0:
+        print("No mentions found.")
+    else:
+        for i, r in enumerate(results[:20]):  # limit to 20
+            print(f"{i+1}. File: {r.metadata.get('source')}")
+            print(f"   Page: {r.metadata.get('page')}")
+            print(r.page_content[:300])
+            print("-----\n")
+
+else:
+    query = input("Ask a question: ")
+
 
 
 # =========================
