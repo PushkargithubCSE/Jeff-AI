@@ -1,5 +1,6 @@
 from google import genai
 import os 
+import time 
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -10,7 +11,7 @@ from langchain_core.embeddings import Embeddings
 # =========================
 # 🔑 CREATE GEMINI CLIENT
 # =========================
-client = genai.Client(api_key="AIzaSyBK5ewoJpswzX9YEbJrVfmN1FJ_wz1pOMs")
+client = genai.Client(api_key="AIzaSyDc3TSPjJBJLkX0REZ5SHhGn_bJ0fSAOa4")   
 
 
 # =========================
@@ -23,7 +24,10 @@ def get_embedding(text):
     )
     return response.embeddings[0].values
 
-#search person function
+
+# =========================
+# 🔹 SEARCH PERSON FUNCTION
+# =========================
 def search_person(name, chunks):
     results = []
 
@@ -33,40 +37,73 @@ def search_person(name, chunks):
 
     return results
 
+
 # =========================
 # 🔹 CUSTOM EMBEDDING CLASS
 # =========================
+# 🔴 UPDATED (BATCHING ADDED)
 class GeminiEmbeddings(Embeddings):
     def embed_documents(self, texts):
-        return [get_embedding(t) for t in texts]
+        embeddings = []
+
+        batch_size = 20   # 🔴 safe for free tier
+
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+
+            print(f"Embedding batch {i} → {i + len(batch)}")
+
+            try:
+                response = client.models.embed_content(
+                    model="gemini-embedding-001",
+                    contents=batch
+                )
+
+                for emb in response.embeddings:
+                    embeddings.append(emb.values)
+
+            except Exception as e:
+                print("⚠️ Error, retrying...", e)
+                time.sleep(5)
+                continue
+
+            time.sleep(1)   # 🔴 IMPORTANT (avoid rate limit)
+
+        return embeddings
 
     def embed_query(self, text):
-        return get_embedding(text)
+        response = client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=text
+        )
+        return response.embeddings[0].values
 
 
 # =========================
 # 🔹 LOAD PDF
 # =========================
-import os
-
 all_docs = []
 
-folder_path = "data"
+folder_path = "Data"
 
-for filename in os.listdir(folder_path):
-    if filename.endswith(".pdf"):
-        file_path = os.path.join(folder_path, filename)
+for root, dirs, files in os.walk(folder_path):
+    for filename in files:
+        if filename.endswith(".pdf"):
+            file_path = os.path.join(root, filename)
 
-        print(f"Loading {filename}...")
+            print(f"Loading {filename}...")
 
-        loader = PyPDFLoader(file_path)
-        docs = loader.load()
+            try:
+                loader = PyPDFLoader(file_path)
+                docs = loader.load()
 
-        # add file name metadata
-        for d in docs:
-            d.metadata["source"] = filename
+                for d in docs:
+                    d.metadata["source"] = filename
 
-        all_docs.extend(docs)
+                all_docs.extend(docs)
+
+            except Exception as e:
+                print(f"❌ Skipping {filename}: {e}")
 
 print(f"\nTotal documents loaded: {len(all_docs)}")
 
@@ -85,14 +122,20 @@ chunks = splitter.split_documents(all_docs)
 # =========================
 # 🔹 CREATE VECTOR DB
 # =========================
+# 🔴 ADDED PRINT (progress visibility)
+print("\nCreating embeddings & vector DB... (this may take time)\n")
+
 embeddings = GeminiEmbeddings()
 db = FAISS.from_documents(chunks, embeddings)
+
+print("\n✅ Vector DB created\n")
 
 
 # =========================
 # 🔹 USER QUERY
 # =========================
 mode = input("\nType 'ask' or 'person': ").strip().lower()
+
 
 # =========================
 # PERSON MODE
@@ -112,6 +155,7 @@ if mode == "person":
             print(f"   Page: {r.metadata.get('page')}")
             print(r.page_content[:300])
             print("-----\n")
+
 
 # =========================
 # ASK MODE
@@ -153,6 +197,7 @@ elif mode == "ask":
         print(f"{i+1}. File: {r.metadata.get('source')}, Page: {r.metadata.get('page')}")
         print(r.page_content[:200])
         print("-----\n")
+
 
 else:
     print("Invalid option")
