@@ -5,8 +5,18 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.embeddings import Embeddings
 from google import genai
 import os
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow all (for development)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Load DB once
 DB_PATH = "faiss_index"
